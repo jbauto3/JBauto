@@ -7,12 +7,11 @@ class TradeCurrencyWorker():
         self.alive = True
 
 
-        with open("keykey.txt") as f:
-            lines = f.readlines()
-            Bit_apikey = lines[4].strip()
-            Bit_seckey = lines[5].strip()
-            Upb_apikey = lines[2].strip()
-            Upb_seckey = lines[3].strip()
+
+            Bit_apikey = "access_key"
+            Bit_seckey = "sec_key
+            Upb_apikey = "access_key"
+            Upb_seckey = "sec_key"
 
             self.bithumb = pybithumb.Bithumb(Bit_apikey, Bit_seckey)
             self.upbit = pyupbit.Upbit(Upb_apikey, Upb_seckey)
