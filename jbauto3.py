@@ -1,10 +1,12 @@
 import time, datetime, pybithumb, pyupbit, math
+import tele_message
 
 class TradeCurrencyWorker():
     def __init__(self, ticker, ticker2):
         self.ticker = ticker
         self.ticker2 = ticker2
         self.alive = True
+        self.tele = tele_message.Telegrams()
 
 
 
