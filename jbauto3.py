@@ -3,17 +3,17 @@ import tele_message
 import threading
 
 class TradeCurrencyWorker():
+
     def __init__(self, ticker, ticker2):
         self.ticker = ticker
         self.ticker2 = ticker2
         self.alive = True
         self.tele = tele_message.Telegrams()
 
-
-        Bit_apikey = "access_key"
-        Bit_seckey = "sec_key
-        Upb_apikey = "access_key"
-        Upb_seckey = "sec_key"
+        Bit_apikey = 
+        Bit_seckey = 
+        Upb_apikey =
+        Upb_seckey =
 
         self.bithumb = pybithumb.Bithumb(Bit_apikey, Bit_seckey)
         self.upbit = pyupbit.Upbit(Upb_apikey, Upb_seckey)
@@ -28,7 +28,10 @@ class TradeCurrencyWorker():
         print("빗썸보유현금 : {} 원".format(bit_bal2))
         print("업비트보유현금 : {} 원".format(upb_bal))
 
-    def run(self):                              #"매매시작" 버튼 누르면 얘 돌아감
+    def close(self):
+        self.alive = False
+
+    def run(self):
 
         while self.alive:
             try:
@@ -115,10 +118,22 @@ class TradeCurrencyWorker():
 
                                 if math.isclose(bithumbAvailableCur - qty, after_bitAvailableCur) \
                                         or bithumbAvailableKRW < after_bitAvailableKRW or outstanding2 == None:  # 거래 정상 진행시
+
+                                    # TODO 확인용
+                                    print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
+                                          after_bitAvailableKRW,
+                                          outstanding2, bit_ask, bit_ask_qty)
+
                                     pass
                                 elif math.isclose(bithumbAvailableCur, after_bitAvailableCur) or \
                                         after_bitAvailableKRW == bithumbAvailableKRW or math.isclose(float(outstanding2), qty):  # 전량 미체결 시
                                     self.bithumb.cancel_order(order_desc1)  # 주문취소
+
+                                    # TODO 확인용
+                                    print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
+                                          after_bitAvailableKRW,
+                                          outstanding2, bit_ask, bit_ask_qty)
+
                                     print("주문 취소 : {사유} = 빗썸체결실패 ")
                                     #TODO 스레드 멈춘 후 다시 run 돌리면 정상작동되는지 불확실
                                     get_trade.close()
@@ -209,14 +224,26 @@ class TradeCurrencyWorker():
                                 order_desc2 = ('bid', self.ticker, bithumbSellBuyError['order_id'], 'KRW')
                                 after_bitAvailableCur = float(self.bithumb.get_balance(self.ticker)[0])
                                 after_bitAvailableKRW = self.bithumb.get_balance(self.ticker)[2]
-                                outstanding2 = self.bithumb.get_outstanding_order(order_desc1)
+                                outstanding2 = self.bithumb.get_outstanding_order(order_desc2)
 
                                 if math.isclose(bithumbAvailableCur + qty, after_bitAvailableCur) or \
                                         bithumbAvailableKRW > after_bitAvailableKRW or outstanding2 == None : # 거래 정상 진행시
+
+                                    # TODO 확인용
+                                    print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
+                                          after_bitAvailableKRW,
+                                          outstanding2, bit_ask, bit_ask_qty)
+
                                     pass
                                 elif math.isclose(bithumbAvailableCur, after_bitAvailableCur) or \
                                         after_bitAvailableKRW == bithumbAvailableKRW or math.isclose(float(outstanding2), qty):
-                                    # 전량 미체결 시 (기존pci잔고 = 거래후 pci 잔고)
+
+
+                                    # TODO 확인용
+                                    print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
+                                          after_bitAvailableKRW,
+                                          outstanding2, bit_ask, bit_ask_qty)
+
                                     self.bithumb.cancel_order(order_desc2)  # 주문취소
                                     print("주문 취소 : {사유} = 빗썸체결실패 ")
                                     get_trade.close()
@@ -273,21 +300,20 @@ class TradeCurrencyWorker():
                                 return False
                             print("거래완료")
                             self.tele.alarm_command("b")
+
                     else:
                         print(formatDate + "가격차이 탐지중")
 
                 else:
                     print(data)
                     get_trade.close()
-                    time.sleep(0.1)
+                    time.sleep(0.5)
                     return trade.run()
 
             except TypeError:
                 print("TradeCurrencyWorker / data 가져오기 실패 : TypeError 발생")
                 return False
 
-    def close(self):
-        self.alive = False
 
 
 if __name__ == "__main__":
