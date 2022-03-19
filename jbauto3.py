@@ -25,8 +25,8 @@ class TradeCurrencyWorker():
         bit_bal = math.trunc(bithumbAvailableKRW)
         bit_bal2 = format(bit_bal, ',')
         upb_bal = format(upbitAvailableKRW, ',')
-        print("빗썸보유현금 : {} 원".format(bit_bal2))
-        print("업비트보유현금 : {} 원".format(upb_bal))
+        print("Bithumb KRW : {} Won".format(bit_bal2))
+        print("Upbit KRW : {} Won".format(upb_bal))
 
     def close(self):
         self.alive = False
@@ -35,12 +35,10 @@ class TradeCurrencyWorker():
 
         while self.alive:
             try:
-                #bit 오더북,가격데이터
                 bithumbOrderbook = pybithumb.get_orderbook(self.ticker, limit=10)
-                bit_bid = bithumbOrderbook["bids"][0]["price"]  # 최상위 매수가격
-                bit_ask = bithumbOrderbook["asks"][0]["price"] # 최하위 매도가격
+                bit_bid = bithumbOrderbook["bids"][0]["price"]
+                bit_ask = bithumbOrderbook["asks"][0]["price"]
 
-                #빗썸 가격에서 천단위 이상에 소수점 붙으면 limit_order가 안되는 오류때문에 1000원 이상일때 정수로 바꿔줌----
                 if bit_bid < 1000:
                     pass
                 else:
@@ -52,16 +50,14 @@ class TradeCurrencyWorker():
                     bit_ask = int(bit_ask)
                 #---------------------------------------------------
 
-                bit_bid_qty = round(float(bithumbOrderbook["bids"][0]["quantity"]),3)  # 최상위 매수가격 수량
-                bit_ask_qty = round(float(bithumbOrderbook["asks"][0]["quantity"]),3)  # 최하위 매도가격 수량
+                bit_bid_qty = round(float(bithumbOrderbook["bids"][0]["quantity"]),3)  
+                bit_ask_qty = round(float(bithumbOrderbook["asks"][0]["quantity"]),3) 
 
-                #upb 오더북,가격 데이터
                 upbitOrderbook = pyupbit.get_orderbook(self.ticker2)
-
-                #BTC거래 관련 추가
+                
                 BTC_price = pyupbit.get_current_price("KRW-BTC")
 
-                #upb, bit 잔고 데이터
+
                 upb_bid = float(upbitOrderbook["orderbook_units"][0]["bid_price"])
                 upb_ask = float(upbitOrderbook["orderbook_units"][0]["ask_price"])
                 upb_bid_qty = round(float(upbitOrderbook["orderbook_units"][0]["bid_size"]),3)
@@ -76,40 +72,37 @@ class TradeCurrencyWorker():
                 data = [bit_bid, bit_bid_qty, bit_ask, bit_ask_qty, upb_bid, upb_bid_qty, upb_ask, upb_ask_qty,
                         bithumbAvailableKRW, bithumbAvailableCur, upbitAvailableKRW, upbitAvailableCur, upbitAvailableBTC, BTC_price]
 
-                if data != None and self.alive == True: #data가 정상조회될 때,
+                if data != None and self.alive == True:
                     now = datetime.datetime.now()
                     formatDate = now.strftime("[%H:%M:%S]")
                     KRW_upb_bid = upb_bid * BTC_price
                     KRW_upb_ask = upb_ask * BTC_price
 
-                    #TODO-------------bithumb 매도/upbit 매수--------------
+              
                     if bit_bid - KRW_upb_ask >= KRW_upb_ask * margin:
                         perc = (bit_bid / KRW_upb_ask) - 1
 
                         market_bid = bit_bid  #
                         market_ask = KRW_upb_ask  #
 
-                        # -----------------예외상황--------------------
+                
                         if upb_ask_qty < qty or bit_bid_qty < qty:
-                            print(formatDate + "수량부족")
+                            print(formatDate + "Lack of quantity")
                             return trade.run()
-                        # BTC 거래 관련 추가
                         if upbitAvailableBTC < upb_ask * qty:
-                            print(formatDate + "업비트 BTC 부족")
+                            print(formatDate + "Lack of upbit BTC")
                             return trade.run()
                         if round(bithumbAvailableCur, 4) < qty:
-                            print(formatDate + "빗썸 현물부족")
+                            print(formatDate + "Lack of bithumb currency")
                             return trade.run()
                         # --------------------------------------------
 
-                        # BTC 거래 관련 추가
-                        if upbitAvailableBTC > upb_ask * qty and bithumbAvailableCur > qty:  # 조건 괜찮으면 빗썸에서 매도+업빗에서 매수 진행
-                            print("거래시작 == upbit 매수 + bithumb 매도")
-                            print("가격차이비율 : {}%".format(round(perc, 4) * 100))
-                            print(formatDate + "   업비트 {}원 구매 + 빗썸 {}원 판매".format(math.trunc(KRW_upb_ask), bit_bid))
+                        if upbitAvailableBTC > upb_ask * qty and bithumbAvailableCur > qty:
+                            print("Trade Start == upbit buy + bithumb sell")
+                            print("Price Differ : {}%".format(round(perc, 4) * 100))
+                            print(formatDate + "   Upbit {}won buy + bithumb {}won sell".format(math.trunc(KRW_upb_ask), bit_bid))
                             bithumbSellBuyError = self.bithumb.sell_limit_order(self.ticker, market_bid, qty)  #
 
-                            # -----------------체결 성공시 미체결조회주문------------------
                             if bithumbSellBuyError['status'] == '0000':
                                 order_desc1 = ('ask', self.ticker, bithumbSellBuyError['order_id'], "KRW")
                                 after_bitAvailableCur = self.bithumb.get_balance(self.ticker)[0]
@@ -117,7 +110,7 @@ class TradeCurrencyWorker():
                                 outstanding2 = self.bithumb.get_outstanding_order(order_desc1)
 
                                 if math.isclose(bithumbAvailableCur - qty, after_bitAvailableCur) \
-                                        or bithumbAvailableKRW < after_bitAvailableKRW or outstanding2 == None:  # 거래 정상 진행시
+                                        or bithumbAvailableKRW < after_bitAvailableKRW or outstanding2 == None:
 
                                     # TODO 확인용
                                     print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
@@ -126,33 +119,31 @@ class TradeCurrencyWorker():
 
                                     pass
                                 elif math.isclose(bithumbAvailableCur, after_bitAvailableCur) or \
-                                        after_bitAvailableKRW == bithumbAvailableKRW or math.isclose(float(outstanding2), qty):  # 전량 미체결 시
-                                    self.bithumb.cancel_order(order_desc1)  # 주문취소
+                                        after_bitAvailableKRW == bithumbAvailableKRW or math.isclose(float(outstanding2), qty):
+                                    self.bithumb.cancel_order(order_desc1)
 
                                     # TODO 확인용
                                     print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
                                           after_bitAvailableKRW,
                                           outstanding2, bit_ask, bit_ask_qty)
 
-                                    print("주문 취소 : {사유} = 빗썸체결실패 ")
-                                    #TODO 스레드 멈춘 후 다시 run 돌리면 정상작동되는지 불확실
+                                    print("Order cancel : Bithumb contract failure ")
                                     get_trade.close()
                                     time.sleep(2)
                                     self.alive = True
                                     return trade.run()
-                                else:  # 일부 미체결시
-                                    print("주문 취소 : {사유} = 빗썸일부미체결 ")
+                                else: 
+                                    print("Order cancel : Bithumb some contracts failure ")
                                     get_trade.close()
-                                    print("-------쓰레드중지--------")
+                                    print("-------Thread stop--------")
                                     self.tele.alarm_command("d")
                                     return False
 
-                            # ------------------매도 실패시------------------
                             elif bithumbSellBuyError['status'] != '0000':
-                                print("bithumbSellBuyError 오류")
-                                print("오류내용 : {}".format(bithumbSellBuyError))
+                                print("bithumbSellBuyError Error")
+                                print("Error Code : {}".format(bithumbSellBuyError))
                                 get_trade.close()
-                                print("-------쓰레드중지--------")
+                                print("-------Thread stop--------")
                                 self.tele.alarm_command("e")
                                 return False
 
@@ -160,74 +151,72 @@ class TradeCurrencyWorker():
                             after_upbitAvailableCur = float(self.upbit.get_balance(self.ticker2))
                             after_upbBTC_bal = self.upbit.get_balance("BTC")
 
-                            if type(upbSellBuyError) == dict:  # 거래가 정상적으로 진행되고,
-                                # 코인 수 변화있거나, BTC잔액 변화있거나, 주문상태가 done이라면 == 정상주문 진행되었다면,
+                            if type(upbSellBuyError) == dict:
                                 if math.isclose(upbitAvailableCur + qty, after_upbitAvailableCur) or \
                                         upbitAvailableBTC != after_upbBTC_bal or \
                                         self.upbit.get_order(upbSellBuyError['uuid'])['state'] == "done":
 
                                     try:
-                                        BTC_buy = self.upbit.buy_market_order("KRW-BTC", qty * market_ask)  # BTC 쓴만큼 시장가로 다시 구매(매수금액)
+                                        BTC_buy = self.upbit.buy_market_order("KRW-BTC", qty * market_ask)
                                         if BTC_buy == None:
-                                            print("BTC구매불가 - KRW잔액부족")
-                                            print("오류내용 - {}".format(BTC_buy))
-                                            print("-------쓰레드중지--------")
+                                            print("Not available to purchase - Lack of KRW balance")
+                                            print("Error Code - {}".format(BTC_buy))
+                                            print("-------Thread stop--------")
                                             get_trade.close()
                                             return False
                                     except:
-                                        print("BTC구매실패 - 알 수 없는 오류")
-                                        print("-------쓰레드중지--------")
+                                        print("BTC purchase failure : don't know err")
+                                        print("-------Thread stop--------")
                                         get_trade.close()
                                 else:
-                                    print("업비트 일부 미체결 되었습니다")
+                                    print("Upbit some contracts failure")
                                     get_trade.close()
                                     self.tele.alarm_command("c")
                                     return False
 
-                            elif type(upbSellBuyError) != dict:  # 제대로 체결되지 않으면
-                                print("upbSellBuyError 오류 = 체결실패")
-                                print("오류내용 : {}".format(upbSellBuyError))
-                                self.bithumb.buy_limit_order(self.ticker, market_bid,qty)  # 매수 정상적으로 처리 안되면 판 물량만큼 재매수대기 건다
-                                print("-------쓰레드중지--------")
+                            elif type(upbSellBuyError) != dict:
+                                print("upbSellBuyError Err = contract failure")
+                                print("Error code : {}".format(upbSellBuyError))
+                                self.bithumb.buy_limit_order(self.ticker, market_bid,qty)
+                                print("-------Thread stop--------")
                                 get_trade.close()
                                 return False
 
-                            print("거래완료")
+                            print("Trade Complete")
                             self.tele.alarm_command("a")
 
-                    #TODO bithumb 매수/upbit 매도
+                    #TODO bithumb buy/upbit sell
                     elif KRW_upb_bid - bit_ask >= bit_ask * margin:  #
                         perc2 = (KRW_upb_bid / bit_ask) - 1
                         market_ask = bit_ask  #
 
                         if upb_bid_qty < qty or bit_ask_qty < qty:  #
-                            print(formatDate + "시장수량부족")
+                            print(formatDate + "Lack of market quantity")
                             return trade.run()
                         if bithumbAvailableKRW < market_ask * qty:
-                            print(formatDate + "빗썸 현금부족")
+                            print(formatDate + "Lack of Bithumb KRW bal")
                             return trade.run()
 
                         after_upbitAvailableCur = float(self.upbit.get_balance(self.ticker2))
 
                         if round(after_upbitAvailableCur, 4) < qty:
-                            print(formatDate + "업비트 현물부족")
+                            print(formatDate + "Lack of Upbit KRW bal")
                             return trade.run()
                         # ---------------------------------------------
 
                         if bithumbAvailableKRW >= market_ask * qty and after_upbitAvailableCur >= qty:
-                            print("가격차이비율 : {}%".format(round(perc2, 4) * 100))
-                            print(formatDate + "   빗썸 {}원 구매 + 업비트 {}원 판매".format(bit_ask, math.trunc(KRW_upb_bid)))
+                            print("Price differ : {}%".format(round(perc2, 4) * 100))
+                            print(formatDate + "   bithumb {}won buy + upbit {}won sell".format(bit_ask, math.trunc(KRW_upb_bid)))
                             bithumbSellBuyError = self.bithumb.buy_limit_order(self.ticker, market_ask, qty)
 
-                            # -----------------체결 성공시 미체결조회주문------------------
-                            if bithumbSellBuyError['status'] == "0000":  # 체결 성공하면
+                            if bithumbSellBuyError['status'] == "0000":
                                 order_desc2 = ('bid', self.ticker, bithumbSellBuyError['order_id'], 'KRW')
                                 after_bitAvailableCur = float(self.bithumb.get_balance(self.ticker)[0])
                                 after_bitAvailableKRW = self.bithumb.get_balance(self.ticker)[2]
                                 outstanding2 = self.bithumb.get_outstanding_order(order_desc2)
 
                                 if math.isclose(bithumbAvailableCur + qty, after_bitAvailableCur) or \
-                                        bithumbAvailableKRW > after_bitAvailableKRW or outstanding2 == None : # 거래 정상 진행시
+                                        bithumbAvailableKRW > after_bitAvailableKRW or outstanding2 == None :
 
                                     # TODO 확인용
                                     print(formatDate, bithumbAvailableCur, after_bitAvailableCur, bithumbAvailableKRW,
@@ -244,80 +233,76 @@ class TradeCurrencyWorker():
                                           after_bitAvailableKRW,
                                           outstanding2, bit_ask, bit_ask_qty)
 
-                                    self.bithumb.cancel_order(order_desc2)  # 주문취소
-                                    print("주문 취소 : {사유} = 빗썸체결실패 ")
+                                    self.bithumb.cancel_order(order_desc2)
+                                    print("Order cancel : bithumb contract failure ")
                                     get_trade.close()
                                     time.sleep(2)
                                     self.alive = True
                                     return trade.run()
-                                else:  # 일부 미체결시
-                                    print("주문 취소 : {사유} = 빗썸일부미체결 ")
+                                else: 
+                                    print("Order cancel : bithumb some contracs failure  ")
                                     get_trade.close()
-                                    print("-------쓰레드중지--------")
+                                    print("-------Thread stop--------")
                                     self.tele.alarm_command("d")
                                     return False
-                            elif bithumbSellBuyError['status'] != "0000":  # 매수 과정에서 오류 발생시 바로 False 리턴해서 while문 종료시킴
-                                print("bithumbSellBuyError 오류")
-                                print("오류내용 : {}".format(bithumbSellBuyError))
-                                print("-------쓰레드중지--------")
+                            elif bithumbSellBuyError['status'] != "0000":
+                                print("bithumbSellBuyError Error")
+                                print("Error code : {}".format(bithumbSellBuyError))
+                                print("-------Thread stop--------")
                                 self.tele.alarm_command("e")
                                 get_trade.close()
                                 return False
 
                             upbSellBuyError = self.upbit.sell_limit_order(self.ticker2, upb_bid, qty)
-                            # TODO upbSellBuyError이 정상적으로 처리되어도 after_upbit...로 PCI잔고조회했을때 반영이 되지 않는 오류가 있음
-                            after_upbitAvailableCur = float(self.upbit.get_balance(self.ticker2))  # 거래 후 잔량
+                            after_upbitAvailableCur = float(self.upbit.get_balance(self.ticker2))
                             after_upbBTC_bal = self.upbit.get_balance("BTC")
-                            # ---------------체결 정상적으로 진행되면 미체결조회---------------
                             if type(upbSellBuyError) == dict:
-                                # 코인 수 변화있거나, BTC잔액 변화있거나, 주문상태가 done이라면 == 정상주문 진행되었다면,
                                 if math.isclose(upbitAvailableCur - qty, after_upbitAvailableCur) or \
                                         upbitAvailableBTC != after_upbBTC_bal or self.upbit.get_order(upbSellBuyError['uuid'])['state'] == "done":
                                     try:
-                                        BTC_buy = self.upbit.sell_market_order("KRW-BTC", qty * upb_bid)  # BTC 쓴만큼 시장가로 다시 판매(팔 비트 개수입력)
+                                        BTC_buy = self.upbit.sell_market_order("KRW-BTC", qty * upb_bid)
                                         if BTC_buy == None:
-                                            print("BTC구매불가 - KRW잔액부족")
-                                            print("오류내용 - {}".format(BTC_buy))
-                                            print("-------쓰레드중지--------")
+                                            print("Not available to purchase BTC - Lack of KRW bal")
+                                            print("Error code - {}".format(BTC_buy))
+                                            print("-------Thread stop--------")
                                             get_trade.close()
                                             return False
                                     except:
-                                        print("BTC구매실패 - 알 수 없는 오류")
-                                        print("-------쓰레드중지--------")
+                                        print("BTC purchase failure - don't know")
+                                        print("-------Thread stop--------")
                                         get_trade.close()
                                         return False
                                 else:
-                                    print("업비트 미체결 되었습니다")
+                                    print("Upbit doesn't purchased")
                                     get_trade.close()
                                     self.tele.alarm_command("c")
                                     return False
-                            elif type(upbSellBuyError) != dict:  # 제대로 체결되지 않으면
-                                print("upbSellBuyError 오류 = 체결실패")
-                                print("오류내용 : {}".format(upbSellBuyError))
-                                self.bithumb.sell_limit_order(self.ticker, market_ask, qty)  # 업빗에서 매도 오류시 빗썸에서 산 물량만큼 재매도대기 건다
+                            elif type(upbSellBuyError) != dict:
+                                print("upbSellBuyError Err = contract failure")
+                                print("Error code : {}".format(upbSellBuyError))
+                                self.bithumb.sell_limit_order(self.ticker, market_ask, qty) 
                                 get_trade.close()
-                                print("-------쓰레드중지--------")
+                                print("-------Thread stop--------")
                                 return False
-                            print("거래완료")
+                            print("Trade done")
                             self.tele.alarm_command("b")
 
                     else:
-                        print(formatDate + "가격차이 탐지중")
+                        print(formatDate + "Searching price diff")
 
                 else:
                     print(data)
                     get_trade.close()
-                    time.sleep(0.5)
                     return trade.run()
 
             except TypeError:
-                print("TradeCurrencyWorker / data 가져오기 실패 : TypeError 발생")
+                print("TradeCurrencyWorker / data upload fail : TypeError")
                 return False
 
 
 
 if __name__ == "__main__":
-    ticker, ticker2 = input("빗썸 티커,업비트 티커 : ").split(",")
+    ticker, ticker2 = input("Bithumb ticker , Upbit ticker : ").split(",")
     qty, margin = map(float, input("qty , margin : ").split(","))
     trade = TradeCurrencyWorker(ticker, ticker2)
     get_trade = threading.Thread(target=trade.run)
